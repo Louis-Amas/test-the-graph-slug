@@ -1,0 +1,30 @@
+specVersion: 0.0.5
+schema:
+  file: ./schema.graphql
+dataSources:
+  - kind: ethereum
+    name: Counter
+    network: mumbai
+    source:
+      address: "0x691c30596026adAdD09d7D2A1ca4eBD7E30BE485"
+      abi: Counter
+      startBlock: 36266586
+    mapping:
+      kind: ethereum/events
+      apiVersion: 0.0.7
+      language: wasm/assemblyscript
+      entities:
+        - CounterIncrement
+        - StartCounting
+        - StopCounting
+      abis:
+        - name: Counter
+          file: ./abis/Counter.json
+      eventHandlers:
+        - event: CounterIncrement()
+          handler: handleCounterIncrement
+        - event: StartCounting()
+          handler: handleStartCounting
+        - event: StopCounting()
+          handler: handleStopCounting
+      file: ./src/counter.ts
