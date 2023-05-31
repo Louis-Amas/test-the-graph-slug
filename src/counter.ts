@@ -1,52 +1,55 @@
-import { BigInt } from "@graphprotocol/graph-ts"
+import { BigInt, Bytes, Value } from "@graphprotocol/graph-ts"
 import {
   Counter,
   CounterIncrement,
   StartCounting,
   StopCounting
 } from "../generated/Counter/Counter"
-import { ExampleEntity } from "../generated/schema"
+import { CountingEntity } from "../generated/schema"
 
-export function handleCounterIncrement(event: CounterIncrement): void {
-  // Entities can be loaded from the store using a string ID; this ID
-  // needs to be unique across all entities of the same type
-  let entity = ExampleEntity.load(event.transaction.from)
-
-  // Entities only exist after they have been saved to the store;
-  // `null` checks allow to create entities on demand
+export function handleCounterIncrementTest(event: CounterIncrement): void {
+  let entity = CountingEntity.load(event.transaction.hash);
   if (!entity) {
-    entity = new ExampleEntity(event.transaction.from)
-
-    // Entity fields can be set using simple assignments
-    entity.count = BigInt.fromI32(0)
+    return;
   }
 
-  // BigInt and BigDecimal math are supported
-  entity.count = entity.count + BigInt.fromI32(1)
+  let id = entity.get('last');
+  if (!id) {
+    return;
+  }
 
-  // Entity fields can be set based on event parameters
+  let last = CountingEntity.load(id.toBytes());
 
-  // Entities can be written to the store with `.save()`
-  entity.save()
+  if (!last) {
+    return;
+  }
 
-  // Note: If a handler doesn't require existing field values, it is faster
-  // _not_ to load the entity from the store. Instead, create it fresh with
-  // `new Entity(...)`, set the fields that should be updated and save the
-  // entity back to the store. Fields that were not set or unset remain
-  // unchanged, allowing for partial updates to be applied.
+  last.count = last.count + BigInt.fromI32(1);
 
-  // It is also possible to access smart contracts from mappings. For
-  // example, the contract that has emitted the event can be connected to
-  // with:
-  //
-  // let contract = Contract.bind(event.address)
-  //
-  // The following functions can then be called on this contract to access
-  // state variables and other data:
-  //
-  // - contract.number(...)
+  last.save();
 }
 
-export function handleStartCounting(event: StartCounting): void {}
+export function handleStartCounting(event: StartCounting): void {
+  let entity = CountingEntity.load(event.transaction.hash);
 
-export function handleStopCounting(event: StopCounting): void {}
+  if (!entity) {
+    entity = new CountingEntity(event.transaction.hash);
+    entity.set('last', Value.fromBytes(event.transaction.hash));
+
+    entity.count = BigInt.fromI32(0);
+  } else {
+    let id = Bytes.fromUTF8(event.transaction.hash.toHex() + "-" + "1");
+    let newEntity = new CountingEntity(id);
+
+    newEntity.count = BigInt.fromI32(0);
+    entity.set('last', Value.fromBytes(id));
+
+    newEntity.save();
+  }
+
+  entity.save();
+}
+
+export function handleStopCounting(event: StopCounting): void {
+  // let entity = CountingEntity.load
+}
