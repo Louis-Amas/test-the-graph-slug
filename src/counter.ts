@@ -6,27 +6,21 @@ import {
   StopCounting
 } from "../generated/Counter/Counter"
 import { CountingEntity } from "../generated/schema"
+import { getEntity } from "../tests/counter-utils";
+import { log } from "matchstick-as/assembly/log";
+
+
 
 export function handleCounterIncrementTest(event: CounterIncrement): void {
-  let entity = CountingEntity.load(event.transaction.hash);
-  if (!entity) {
+  let entityFromCounterId = getEntity(event.transaction.hash);
+
+  if (!entityFromCounterId) {
     return;
   }
 
-  let id = entity.get('last');
-  if (!id) {
-    return;
-  }
+  entityFromCounterId.count = entityFromCounterId.count.plus( BigInt.fromI32(1) );
 
-  let last = CountingEntity.load(id.toBytes());
-
-  if (!last) {
-    return;
-  }
-
-  last.count = last.count + BigInt.fromI32(1);
-
-  last.save();
+  entityFromCounterId.save();
 }
 
 export function handleStartCounting(event: StartCounting): void {
@@ -34,15 +28,23 @@ export function handleStartCounting(event: StartCounting): void {
 
   if (!entity) {
     entity = new CountingEntity(event.transaction.hash);
-    entity.set('last', Value.fromBytes(event.transaction.hash));
-
+    entity.set('version', Value.fromI32(0));
     entity.count = BigInt.fromI32(0);
   } else {
-    let id = Bytes.fromUTF8(event.transaction.hash.toHex() + "-" + "1");
+    let version = entity.get('version');
+    let versionInt = 1;
+    if(!version) {
+      // should never happen
+    } else {
+      versionInt = version.toI32()+1;
+      entity.set('version', Value.fromI32(version.toI32() + 1));
+    }
+
+    let id = Bytes.fromUTF8(event.transaction.hash.toHex() + "-" + versionInt.toString());
     let newEntity = new CountingEntity(id);
 
     newEntity.count = BigInt.fromI32(0);
-    entity.set('last', Value.fromBytes(id));
+    entity.set('nextId', Value.fromBytes(id));
 
     newEntity.save();
   }
@@ -51,5 +53,10 @@ export function handleStartCounting(event: StartCounting): void {
 }
 
 export function handleStopCounting(event: StopCounting): void {
-  // let entity = CountingEntity.load
+  let entity = getEntity(event.transaction.hash);
+  if(entity == null) {
+    return;
+  }
+  entity.set('stopped', Value.fromBoolean(true));
+  entity.save();
 }
